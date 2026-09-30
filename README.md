@@ -14,3 +14,9 @@ This package enables generation of MIL-STD-2525 and APP-6 military symbology vec
 
 ```cmd
 milsymbol-cli <SIDC> [size]
+```
+
+## Where to find it
+- [GitHub Repository](https://github.com/s0rent/milsymbol-cli)
+- [Releases](https://github.com/s0rent/milsymbol-cli/releases/)
+- [NuGet Package](https://www.nuget.org/packages/s0rent.Milsymbol.Cli/)

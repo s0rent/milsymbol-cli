@@ -3,7 +3,7 @@
     <TargetFramework>net8.0</TargetFramework>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <PackageId>s0rent.Milsymbol.Cli</PackageId>
-    <Version>0.1.0</Version>
+    <Version>0.1.1</Version>
     <Authors>s0rent</Authors>
     <Description>Spatialillusions' milsymbol JS library repackaged as a CLI application</Description>
     <DevelopmentDependency>true</DevelopmentDependency>
@@ -23,11 +23,22 @@
 
   <ItemGroup>
     <None Include="$(ProjectDir)milsymbol-cli.exe" Pack="true" PackagePath="tools/" />
-    <!-- Embed README file if present -->
     <None Include="README.md" Pack="true" PackagePath="\" Condition="Exists('README.md')" />
-    <!-- Embeds original milsymbol LICENSE file into package root for SBOM compliance -->
-    <None Include="node_modules\milsymbol\LICENSE" Pack="true" PackagePath="THIRD-PARTY-NOTICES.txt" Condition="Exists('node_modules\milsymbol\LICENSE')" />
   </ItemGroup>
+
+  <!-- Dynamically inject license file into NuGet package manifest after npm install -->
+  <Target Name="IncludeThirdPartyNotices" BeforeTargets="_GetPackageFiles;GenerateNuspec" DependsOnTargets="RunLocalNpmInstall">
+    <PropertyGroup>
+      <_MilsymbolLicenseFile>$(ProjectDir)node_modules\milsymbol\LICENSE</_MilsymbolLicenseFile>
+      <_NoticeOutputFile>$(IntermediateOutputPath)THIRD-PARTY-NOTICES.txt</_NoticeOutputFile>
+    </PropertyGroup>
+
+    <Copy SourceFiles="$(_MilsymbolLicenseFile)" DestinationFiles="$(_NoticeOutputFile)" Condition="Exists('$(_MilsymbolLicenseFile)')" />
+
+    <ItemGroup Condition="Exists('$(_NoticeOutputFile)')">
+      <_PackageFiles Include="$(_NoticeOutputFile)" PackagePath="THIRD-PARTY-NOTICES.txt" />
+    </ItemGroup>
+  </Target>
 
   <Target Name="CreatePlaceholderForNuGet" BeforeTargets="GenerateNuspec;Pack">
     <Touch Files="$(ProjectDir)milsymbol-cli.exe" AlwaysCreate="true" Condition="!Exists('$(ProjectDir)milsymbol-cli.exe')" />
