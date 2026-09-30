@@ -1,0 +1,11 @@
+{
+  "name": "milsymbol-cli",
+  "version": "1.0.0",
+  "dependencies": {
+    "milsymbol": "^3.0.4"
+  },
+  "devDependencies": {
+    "esbuild": "^0.20.0",
+    "postject": "*"
+  }
+}

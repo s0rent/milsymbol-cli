@@ -1,0 +1,82 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <PackageId>s0rent.Milsymbol.Cli</PackageId>
+    <Version>0.1.0</Version>
+    <Authors>s0rent</Authors>
+    <Description>Spatialillusions' milsymbol JS library repackaged as a CLI application</Description>
+    <DevelopmentDependency>true</DevelopmentDependency>
+
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/s0rent/milsymbol-cli</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/s0rent/milsymbol-cli</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <UseAppHost>false</UseAppHost>
+    <CopyBuildOutputToOutputDirectory>false</CopyBuildOutputToOutputDirectory>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <NoWarn>$(NoWarn);NU5128</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="$(ProjectDir)milsymbol-cli.exe" Pack="true" PackagePath="tools/" />
+    <!-- Embed README file if present -->
+    <None Include="README.md" Pack="true" PackagePath="\" Condition="Exists('README.md')" />
+    <!-- Embeds original milsymbol LICENSE file into package root for SBOM compliance -->
+    <None Include="node_modules\milsymbol\LICENSE" Pack="true" PackagePath="THIRD-PARTY-NOTICES.txt" Condition="Exists('node_modules\milsymbol\LICENSE')" />
+  </ItemGroup>
+
+  <Target Name="CreatePlaceholderForNuGet" BeforeTargets="GenerateNuspec;Pack">
+    <Touch Files="$(ProjectDir)milsymbol-cli.exe" AlwaysCreate="true" Condition="!Exists('$(ProjectDir)milsymbol-cli.exe')" />
+  </Target>
+
+  <Target Name="EnsureLocalNodeBinaries" BeforeTargets="RunLocalNpmInstall;CompileNodeSEA" Condition="!Exists('$(ProjectDir)obj\Node\node.exe')">
+    <PropertyGroup>
+      <NodeVersion>20.18.0</NodeVersion>
+      <NodeZipName>node-v$(NodeVersion)-win-x64</NodeZipName>
+    </PropertyGroup>
+    <Message Importance="high" Text="Downloading portable Node.js v$(NodeVersion) into project build folder..." />
+    
+    <DownloadFile SourceUrl="https://nodejs.org/dist/v$(NodeVersion)/$(NodeZipName).zip" DestinationFolder="$(ProjectDir)obj" DestinationFileName="node-portable.zip" />
+    <Unzip SourceFiles="$(ProjectDir)obj\node-portable.zip" DestinationFolder="$(ProjectDir)obj\node-extracted" />
+    
+    <ItemGroup>
+      <_DownloadedNodeFiles Include="$(ProjectDir)obj\node-extracted\$(NodeZipName)\**\*.*" />
+    </ItemGroup>
+    
+    <Copy SourceFiles="@(_DownloadedNodeFiles)" DestinationFolder="$(ProjectDir)obj\Node\%(RecursiveDir)" />
+    <RemoveDir Directories="$(ProjectDir)obj\node-extracted" />
+    <Delete Files="$(ProjectDir)obj\node-portable.zip" />
+  </Target>
+
+  <Target Name="RunLocalNpmInstall" BeforeTargets="CompileNodeSEA" DependsOnTargets="EnsureLocalNodeBinaries">
+    <PropertyGroup>
+      <LocalNodeDir>$(ProjectDir)obj\Node</LocalNodeDir>
+      <LocalNodeExe>$(LocalNodeDir)\node.exe</LocalNodeExe>
+      <LocalNpmCli>$(LocalNodeDir)\node_modules\npm\bin\npm-cli.js</LocalNpmCli>
+    </PropertyGroup>
+    <Message Importance="high" Text="Installing npm dependencies using local Node toolchain..." />
+    <Exec Command="set &quot;PATH=$(LocalNodeDir);%PATH%&quot; &amp;&amp; &quot;$(LocalNodeExe)&quot; &quot;$(LocalNpmCli)&quot; install" WorkingDirectory="$(ProjectDir)" />
+  </Target>
+
+  <Target Name="CompileNodeSEA" BeforeTargets="GenerateNuspec;Pack" DependsOnTargets="EnsureLocalNodeBinaries;RunLocalNpmInstall">
+    <PropertyGroup>
+      <LocalNodeDir>$(ProjectDir)obj\Node</LocalNodeDir>
+      <LocalNodeExe>$(LocalNodeDir)\node.exe</LocalNodeExe>
+      <EsbuildScript>$(ProjectDir)node_modules\esbuild\bin\esbuild</EsbuildScript>
+      <PostjectScript>$(ProjectDir)node_modules\postject\dist\cli.js</PostjectScript>
+    </PropertyGroup>
+    
+    <Message Importance="high" Text="Bundling JavaScript logic with esbuild..." />
+    <Exec Command="set &quot;PATH=$(LocalNodeDir);%PATH%&quot; &amp;&amp; &quot;$(LocalNodeExe)&quot; &quot;$(EsbuildScript)&quot; index.js --bundle --platform=node --outfile=bundle.js" WorkingDirectory="$(ProjectDir)" />
+
+    <Message Importance="high" Text="Compiling Node SEA binary..." />
+    <Exec Command="&quot;$(LocalNodeExe)&quot; --experimental-sea-config sea-config.json" WorkingDirectory="$(ProjectDir)" />
+    <Exec Command="copy &quot;$(LocalNodeExe)&quot; &quot;$(ProjectDir)milsymbol-cli.exe&quot; /Y" WorkingDirectory="$(ProjectDir)" />
+    <Exec Command="set &quot;PATH=$(LocalNodeDir);%PATH%&quot; &amp;&amp; &quot;$(LocalNodeExe)&quot; &quot;$(PostjectScript)&quot; milsymbol-cli.exe NODE_SEA_BLOB sea-prep.blob --sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2" WorkingDirectory="$(ProjectDir)" />
+  </Target>
+
+</Project>
